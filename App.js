@@ -4,8 +4,16 @@ import Header from './components/header'
 import { DefaultTheme, Provider, DarkTheme, TextInput, Button, FAB, Modal, Portal } from 'react-native-paper'
 import Card from './components/card';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons'
-import { getData, insertData } from './db/db';
+import SQLite from 'react-native-sqlite-storage';
 
+const db = SQLite.openDatabase(
+  {
+    name: 'MainDB',
+    location: 'default',
+  },
+  () => { },
+  error => { console.log(error) }
+);
 export default function App() {
   const [darkMode, setDarkMode] = useState(false)
   const [visible, setVisible] = useState(false)
@@ -14,7 +22,8 @@ export default function App() {
   const [tasks, setTasks] = useState([])
 
   useEffect(() => {
-    setTasks(getData());
+    createTable();
+    getData();
     return () => {
       setRefreshing(false)
     }
@@ -35,17 +44,87 @@ export default function App() {
     roundness: 2,
     colors: {
       ...DarkTheme.colors,
-      background: 'black',
+      background: '#424242',
       text: "#fff",
       accent: '#232323',
     },
   };
 
-  const handleSubmit = async () => {
-    if (text != '') {
-      setTasks(insertData(text))
-      setVisible(false)
-      setText('')
+  const createTable = () => {
+    db.transaction((tx) => {
+      tx.executeSql(
+        "CREATE TABLE IF NOT EXISTS "
+        + "Todos"
+        + "(ID INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT,done INTEGER DEFAULT 0);"
+      )
+    })
+  }
+
+  const getData = async () => {
+    try {
+      await db.transaction(async (tx) => {
+        await tx.executeSql(
+          "SELECT * FROM Todos",
+          [],
+          (tx, res) => {
+            var temp = [];
+            for (let i = 0; i < res.rows.length; ++i) {
+              temp.push(res.rows.item(i))
+            }
+            setTasks(temp)
+          }
+        )
+      })
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  const setData = async () => {
+    if (text == '') {
+      Alert.alert('Warning!', 'Please write your data.')
+    } else {
+      try {
+        await db.transaction(async (tx) => {
+          await tx.executeSql("INSERT INTO Todos (text) VALUES ('" + text + "')");
+          getData();
+          setVisible(false)
+          setText('')
+        })
+      } catch (error) {
+        console.log(error);
+      }
+    }
+  }
+
+  const updateData = async (id, checked) => {
+    console.log(id, checked)
+    try {
+      await db.transaction(async (tx) => {
+        await tx.executeSql(
+          "UPDATE Todos SET done=? WHERE ID=? ",
+          [checked, id],
+          () => getData(),
+          error => { console.log(error) }
+        )
+      })
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  const removeData = async (id) => {
+    try {
+      db.transaction((tx) => {
+        tx.executeSql(
+          "DELETE FROM Todos WHERE ID=?",
+          [id],
+          () => { getData() },
+          error => { console.log(error) }
+        )
+      })
+    } catch (error) {
+      console.log(error);
     }
   }
 
@@ -56,23 +135,21 @@ export default function App() {
         <Portal>
           <Modal visible={visible} onDismiss={() => setVisible(false)} contentContainerStyle={{
             backgroundColor: (darkMode) ? "#232323" : "#f2f2f2",
-            padding: 20,
+            padding: 30,
             display: "flex",
             flexDirection: "row",
             justifyContent: "space-between"
           }}>
-            <MaterialIcons name="add-task" size={100} style={{ color: darkMode ? "#616161" : "#b7b7b7" }} />
             <View style={{
-              width: "65%"
+              width: "100%"
             }}>
               <TextInput
-                label="Task..."
+                label="Task"
                 value={text}
-                mode="outlined"
                 theme={{
                   colors: {
-                    primary: "#616161",
-                    accent: "#232323",
+                    primary: "#fff",
+                    accent: "#424242",
                   },
                 }}
                 onChangeText={text => setText(text)}
@@ -84,7 +161,7 @@ export default function App() {
                   },
                 }}
                 style={{ marginTop: 10 }}
-                onPress={() => handleSubmit()}>
+                onPress={() => setData()}>
                 Done
             </Button>
             </View>
@@ -94,9 +171,9 @@ export default function App() {
           <FlatList
             data={tasks}
             renderItem={({ item }) => {
-              return <Card task={item} array={tasks} setArray={setTasks} />
+              return <Card task={item} array={tasks} deleteData={removeData} updateData={updateData} />
             }}
-            keyExtractor={(item) => item.timeStamp}
+            keyExtractor={(item) => item.id}
             onRefresh={() => setRefreshing(true)}
             refreshing={refreshing}
           />
