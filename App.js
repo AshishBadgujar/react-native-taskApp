@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, FlatList, } from 'react-native'
+import { View, Text, FlatList } from 'react-native'
 import Header from './components/header'
 import { DefaultTheme, Provider, DarkTheme, TextInput, Button, FAB, Modal, Portal } from 'react-native-paper'
 import Card from './components/card';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons'
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getData, insertData } from './db/db';
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(false)
@@ -14,19 +14,7 @@ export default function App() {
   const [tasks, setTasks] = useState([])
 
   useEffect(() => {
-    const getData = async () => {
-      let theme = await AsyncStorage.getItem('theme')
-      theme = JSON.parse(theme)
-      if (theme) {
-        setDarkMode(theme)
-      }
-      let taskArray = await AsyncStorage.getItem('tasks')
-      taskArray = JSON.parse(taskArray)
-      if (taskArray) {
-        setTasks(taskArray)
-      }
-    }
-    getData();
+    setTasks(getData());
     return () => {
       setRefreshing(false)
     }
@@ -55,15 +43,9 @@ export default function App() {
 
   const handleSubmit = async () => {
     if (text != '') {
-      tasks.push({
-        id: tasks.length,
-        completed: false,
-        text: text
-      })
+      setTasks(insertData(text))
       setVisible(false)
       setText('')
-      let str = JSON.stringify(tasks)
-      await AsyncStorage.setItem('tasks', str)
     }
   }
 
@@ -114,7 +96,7 @@ export default function App() {
             renderItem={({ item }) => {
               return <Card task={item} array={tasks} setArray={setTasks} />
             }}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.timeStamp}
             onRefresh={() => setRefreshing(true)}
             refreshing={refreshing}
           />

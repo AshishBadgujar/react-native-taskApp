@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react'
 import { Appbar, Switch, useTheme } from 'react-native-paper';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons'
@@ -6,8 +5,6 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons'
 export default function Header({ theme, setTheme }) {
     const { colors } = useTheme();
     const changeTheme = async () => {
-        let str = JSON.stringify(!theme)
-        await AsyncStorage.setItem('theme', str)
         setTheme(!theme)
     }
     return (
